@@ -1,7 +1,14 @@
 #!/usr/bin/python
+### #!/usr/bin/python3
+from __future__ import absolute_import, division, print_function
+from builtins import (bytes, str, open, super, range,
+                      zip, round, input, int, pow, object)
 
 import sys
-import commands
+# import commands
+
+from urllib3.request import urlopen
+
 
 # ---------- function ----------
 def test1 ():
@@ -23,7 +30,7 @@ def test1 ():
 # ---------- main ----------
 nparms = len( sys.argv )
 if nparms <= 1:
-   help()
+   # help()
    sys.exit()
 
 if sys.argv[1] == "test1":
@@ -67,9 +74,15 @@ if sys.argv[1] == "sys1":
 if sys.argv[1] == "test2":
    # print commands.getstatusoutput('dir /tmp')
    (result, output) = commands.getstatusoutput('dir /tmp')
-   print result
+   print (result)
    oary = output.split("\n")
    print ('\n' . join(oary))
+   sys.exit()
+
+# ----------------------------------------------------------------------
+if sys.argv[1] == "test3":
+   html = urlopen('http://pythonscraping.com/pages/page1.html')
+   print(html.read())
    sys.exit()
 
 # ----------------------------------------------------------------------
