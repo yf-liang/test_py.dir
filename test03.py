@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+
 import sys
 import re
 
@@ -35,6 +36,15 @@ if sys.argv[1] == "test2":
    phoneNumRegex = re.compile(r'\d\d\d-\d\d\d-\d\d\d\d')
    mo = phoneNumRegex.search('My number is 415-555-4242.')
    print('Phone number found: ' + mo.group())
+
+   # grouping
+   phoneNumRegex2 = re.compile(r'(\(\d\d\d\))-(\d\d\d-\d\d\d\d)')
+   mo = phoneNumRegex2.search('My number is 415-555-4242.')
+   print mo.groups()
+   # print mo2.group(1) 
+   # print mo2.group(2)
+   # print mo2.group(0)
+   # print mo2.group()
    sys.exit()
 
 
