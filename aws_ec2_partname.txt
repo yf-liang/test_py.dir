@@ -1,0 +1,71 @@
+for i in ec2.instances.all():
+i.id                   Id: 
+i.state['Name']        State: 
+i.launch_time          Launched: 
+i.root_device_name     Root Device Name: 
+
+i.architecture         Arch: 
+i.hypervisor           Hypervisor: 
+
+i.private_ip_address   Priv. IP: 
+i.public_ip_address    Pub. IP: 
+
+i.private_dns_name     Priv. DNS: 
+i.public_dns_name      Pub. DNS: 
+
+i.subnet               Subnet: 
+i.subnet_id            Subnet Id: 
+i.kernel_id            Kernel: 
+i.instance_type        Instance Type: 
+
+i.ramdisk_id           RAM Disk Id: 
+i.platform             Platform: 
+i.image_id             AMI Id: 
+i.ebs_optimized        EBS Optimized: 
+
+
+
+    Block Device Mappings:
+    for idx, dev in enumerate(i.block_device_mappings, start=1):
+        print("\t- [{0}] Device Name: {1}\tVol Id: {2}\tStatus: " + \
+              "{3}\tDeleteOnTermination: {4}\tAttachTime: {5}".format(
+            idx,
+            colored(dev['DeviceName'], 'cyan'),
+            colored(dev['Ebs']['VolumeId'], 'cyan'),
+            colored(dev['Ebs']['Status'], 'green'),
+            colored(dev['Ebs']['DeleteOnTermination'], 'cyan'),
+            colored(dev['Ebs']['AttachTime'], 'cyan')
+        ))
+
+idx
+dev['DeviceName']                             Device Name:
+dev['Ebs']['VolumeId']                        Vol Id: 
+dev['Ebs']['Status']                          Status: 
+dev['Ebs']['DeleteOnTermination']             DeleteOnTermination: 
+dev['Ebs']['AttachTime']                      AttachTime: 
+
+
+    Tags:
+    for idx, tag in enumerate(i.tags, start=1):
+        print("\t- [{0}] Key: {1}\tValue: {2}".format(
+            idx,
+            colored(tag['Key'], 'cyan'),
+            colored(tag['Value'], 'cyan')
+        ))
+
+idx
+tag['Key']                                    Key: 
+tag['Value']                                  Value: 
+
+
+    Product codes:")
+    for idx, details in enumerate(i.product_codes, start=1):
+        print("\t- [{0}] Id: {1}\tType: {2}".format(
+            idx,
+            colored(details['ProductCodeId'], 'cyan'),
+            colored(details['ProductCodeType'], 'cyan')
+        ))
+
+idx
+details['ProductCodeId']                      Id: 
+details['ProductCodeType']                    Type: 

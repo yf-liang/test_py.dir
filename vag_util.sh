@@ -2,6 +2,7 @@
 pmode="none"
 test "$1" != "" && pmode=$1 && shift
 
+# --------------------------------------------------------------------
 helpme() {
 echo "helpme:
 $0  up   [<vaghost|deault=centos7e>]
@@ -21,6 +22,11 @@ $0  resetssh  [-ubuntu] <awsclient|eg:amz7d]
 
 }
 
+
+targetuser() {
+   test "$1" = "amz7vag" && echo -n "ec2-user" && return
+   echo -n "vagrant"
+}
 
 # --------------------------------------------------------------------
 if [ "$pmode" = "test1" ]; then
@@ -49,13 +55,27 @@ fi
 if [ "$pmode" = "aws_list" ]; then
    target="vag5"
    test "$1" != "" && target="$1"
-   echo "target: $target"
-   ssh -l vagrant $target 'aws ec2 describe-instances --output text  --query \
-       "Reservations[*].Instances[*].[InstanceId,ImageId,Tags[0].Value,Tags[1].Value,InstanceType,PublicIpAddress,State.Name]"'  > hosts.file
+   tuser="`targetuser $target`"
+   echo "target: $target,  user: $tuser"
+   ssh -l $tuser $target '/home/vagrant/vm_util3.py boto_awslist' > hosts.file
+
    pr -t -n hosts.file
+   # cat hosts.file
    exit
 fi
 
+# --------------------------------------------------------------------
+if [ "$pmode" = "aws_list_old" ]; then
+   target="vag5"
+   test "$1" != "" && target="$1"
+   tuser="`targetuser $target`"
+   echo "target: $target,  user: $tuser"
+   ssh -l $tuser $target 'aws ec2 describe-instances --output text  --query \
+       "Reservations[*].Instances[*].[InstanceId,ImageId,InstanceType,PublicIpAddress,State.Name,Tags[0].Value,Tags[1].Value,Tags[2].Value]"'  > hosts.file
+
+   pr -t -n hosts.file
+   exit
+fi
 if [ "$pmode" = "aws_make" ]; then
 set -x
    host="vag5"
@@ -65,6 +85,7 @@ set -x
    test "$1" = "-type" && itype="$2"  && shift && shift
    test "$1" = "-size" && size="$2"   && shift && shift
    target="$1"
+   tuser="`targetuser $target`"
 
    i2type="ami-edc04d89"
    ostype="centos7"
@@ -72,12 +93,23 @@ set -x
    test "$itype"  = "xymon"  && itype="centos"  &&  i2type="ami-79e5681d"
    test "$itype"  = "ubuntu" && i2type="ami-08a6d44d1dac90d8e"  &&  ostype="ubuntu1604"
 
-   echo "host: $host,  target=$target, type=$itype"
+   echo "host: $host, target=$target, tuser=$tuser, type=$itype"
    set -x
-   ssh -l vagrant ${host} "aws ec2 run-instances --image-id $i2type \
+   ssh -l ${tuser} ${host} "aws ec2 run-instances --image-id $i2type \
        --count 1 --instance-type $size --key-name ca-test \
-       --security-group-ids sg2-elk \
---tag-specifications 'ResourceType=instance,Tags=[{Key=\"NodeID\",Value=\"${target}\"},{Key=\"OStype\",Value=\"${ostype}\"}]'"
+       --security-group-ids sg2-elk"   > temp.out
+
+       # --tag-specifications 'ResourceType=instance,Tags=[ {Key=\"OStype\",Value=\"${ostype}\"} ]'"  
+   cat temp.out
+   awsid=`grep InstanceId temp.out | awk -F\" '{print $4}'`
+
+   # 1st one sets order, rest follow?
+   # ssh -l ${tuser} ${host} "aws ec2 create-tags --resources $awsid --tags Key=fieldC,Value=noop"
+   ssh -l ${tuser} ${host} "aws ec2 create-tags --resources $awsid --tags Key=Name,Value=${target}"
+   ssh -l ${tuser} ${host} "aws ec2 create-tags --resources $awsid --tags Key=OStype,Value=${ostype}"
+
+# --tag-specifications 'ResourceType=instance,Tags=[ {Key=\"OStype\",Value=\"${ostype}\"}, {Key=\"NodeID\",Value=\"${target}\"} ]'"
+# --tag-specifications 'ResourceType=instance,Tags=[ {Key=\"NodeID\",Value=\"${target}\"}, {Key=\"OStype\",Value=\"${ostype}\"} ]'"
 
    exit
 fi
@@ -92,6 +124,7 @@ if [ "$pmode" = "aws_stop" ]; then
    test "$1" = "-host" && host="$2"   && shift && shift
    target="none"
    test "$1" != "" && target="$1"     && shift 
+   tuser="`targetuser $target`"
 
    num=1
    cat $awsfile | \
@@ -100,7 +133,7 @@ if [ "$pmode" = "aws_stop" ]; then
       set -- $x
       awsid=$1
       test "$num" = "$target" -o "$target" = "all" && \
-      ssh -l vagrant ${host} "aws ec2 terminate-instances --instance-ids $awsid"
+      ssh -l ${tuser} ${host} "aws ec2 terminate-instances --instance-ids $awsid"
 
       export num=`expr $num + 1`
    done
@@ -109,13 +142,92 @@ fi
 
 
 # --------------------------------------------------------------------
-if [ "$pmode" = "aws_prep" ]; then
-set -x
+if [ "$pmode" = "aws_tags" ]; then
+# set -x
    host="vag5"
    awsfile="hosts.file"
    test "$1" = "-host" && host="$2"   && shift && shift
    target="none"
    test "$1" != "" && target="$1"     && shift 
+   tuser="`targetuser $target`"
+
+   nvar1="" ; nvar2="" ; nvar3=""
+   test "$1" != "" && nvar1=$1
+   test "$2" != "" && nvar2=$2
+   test "$3" != "" && nvar3=$3
+   num=1
+   cat $awsfile | \
+   while read x; do
+      # echo "$num: $x"
+      set -- $x
+      awsid=$1
+      if [ "$num" = "$target" ]; then
+set -x
+         ovar1=$6 ; ovar2=$7 ; ovar3=$8
+         ssh -l ${tuser} ${host} "aws ec2 delete-tags --resources $awsid --tags Key=Name,Value=$ovar2"
+         ssh -l ${tuser} ${host} "aws ec2 delete-tags --resources $awsid --tags Key=OStype,Value=$ovar1"
+         ssh -l ${tuser} ${host} "aws ec2 delete-tags --resources $awsid --tags Key=fieldC,Value=$ovar3"
+         # echo "$ovar1 $ovar2 $ovar3"
+         if [ "$nvar1" != "" ]; then
+            ovar1=$nvar1 ; ovar2=$nvar2 ; ovar3=$nvar3
+         fi
+         # ssh -l ${tuser} ${host} "aws ec2 create-tags --resources $awsid --tags Key=Name,Value=$ovar1"
+         ssh -l ${tuser} ${host} "aws ec2 create-tags --resources $awsid --tags Key=OStype,Value=$ovar2"
+         # ssh -l ${tuser} ${host} "aws ec2 create-tags --resources $awsid --tags Key=fieldC,Value=$ovar3"
+      fi   
+
+      export num=`expr $num + 1`
+   done
+exit
+fi
+
+
+# --------------------------------------------------------------------
+if [ "$pmode" = "aws_tags2" ]; then
+# set -x
+   host="vag5"
+   awsfile="hosts.file"
+   test "$1" = "-host" && host="$2"   && shift && shift
+   target="none"
+   test "$1" != "" && target="$1"     && shift 
+   tuser="`targetuser $target`"
+
+   nvar1="" ; nvar2="" ; nvar3=""
+   test "$1" != "" && nvar1=$1
+   test "$2" != "" && nvar2=$2
+   test "$3" != "" && nvar3=$3
+   num=1
+   cat $awsfile | \
+   while read x; do
+      # echo "$num: $x"
+      set -- $x
+      awsid=$1
+      if [ "$num" = "$target" ]; then
+set -x
+         ovar1=$6 ; ovar2=$7 ; ovar3=$8
+         if [ "$nvar1" != "" ]; then
+            ovar1=$nvar1 ; ovar2=$nvar2 ; ovar3=$nvar3
+         fi
+         ssh -l ${tuser} ${host} "aws ec2 create-tags --resources $awsid --tags Key=Name,Value=$ovar1"
+         # ssh -l ${tuser} ${host} "aws ec2 create-tags --resources $awsid --tags Key=OStype,Value=$ovar2"
+         # ssh -l ${tuser} ${host} "aws ec2 create-tags --resources $awsid --tags Key=fieldC,Value=$ovar3"
+      fi   
+
+      export num=`expr $num + 1`
+   done
+exit
+fi
+
+# --------------------------------------------------------------------
+if [ "$pmode" = "aws_prep" ]; then
+set -x
+   host="vag5"
+   test "$1" = "-host" && host="$2"   && shift && shift
+   target="none"
+   test "$1" != "" && target="$1"     && shift 
+   tuser="`targetuser $target`"
+
+   awsfile="hosts.file"
 
    num=1
    cat $awsfile | \
@@ -125,9 +237,10 @@ set -x
       if [ "$num" = "$target" ]; then
 
          set -- $x
-         anode=$3
-         ostype=$4
-         awsip=$6
+         awsip=$4
+         anode=$6
+         ostype=$7
+         # reset stored ssh key
          ssh-keygen -f "/home/yeliang/.ssh/known_hosts" -R "$anode"
 
          if [ "$ostype" = "centos7" ]; then
@@ -142,7 +255,11 @@ set -x
             echo "$anode  ansible_ssh_host=$anode                            ansible_ssh_user=ubuntu"   >> hosts.temp
          fi
 
+         # update /etc/hosts, change hostname, and reboot
          ansible-playbook  -i hosts.temp vag_atool_a.yml --extra-vars "aserver=$anode"
+
+         # # update vag5:/etc/hosts
+         # ansible-playbook  -i hosts.temp vag_atool_b.yml --extra-vars "aserver=$anode"
 
       exit
       fi
@@ -172,9 +289,46 @@ fi
 
 
 # --------------------------------------------------------------------
+if [ "$pmode" = "aws_desc" ]; then
+set -x
+   host="vag5"
+   awsfile="hosts.file"
+   test "$1" = "-host" && host="$2"   && shift && shift
+   target="none"
+   test "$1" != "" && target="$1"     && shift 
+   tuser="`targetuser $target`"
+
+      awsid=i-00dde111c2d691465
+      ssh -l ${tuser} ${host} "aws ec2 describe-tags --filters \"Name=resource-id,Values=$awsid\" "
+   exit
+fi
+
+
+# --------------------------------------------------------------------
+if [ "$pmode" = "aws_tags" ]; then
+set -x
+   host="vag5"
+   awsfile="hosts.file"
+   test "$1" = "-host" && host="$2"   && shift && shift
+   target="none"
+   test "$1" != "" && target="$1"     && shift 
+   tuser="`targetuser $target`"
+
+      awsid=i-00dde111c2d691465
+      ssh -l ${tuser} ${host} "aws ec2 create-tags --resources $awsid --tags Key=OStype,Value=myType"
+   exit
+fi
+
+
+# --------------------------------------------------------------------
 if [ "$pmode" = "updatehosts" ]; then
 set -x
    ansible-playbook  -i hosts vag_atool.yml
+
+   scp /etc/hosts.dev vagrant@vag5:/tmp/
+   ansible-playbook  -i hosts vag_atool_b.yml
+
+   # ssh -l vagrant vag5 "ssh-keygen -f '/home/vagrant/.ssh/known_hosts' -R 'amz7d'"
    exit
 fi
 
