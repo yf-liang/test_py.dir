@@ -1,0 +1,36 @@
+---
+- hosts: '{{ aserver }}'
+  become_user: root
+  become: true
+
+  tasks:
+  # - name: Ensure the HTTPd package is installed
+  #   yum:
+  #     name: httpd
+  #     state: present
+  #     # become: True
+
+  - name: update 
+    apt: update_cache=yes
+ 
+  - name: install apache2
+    apt: name=apache2 state=present
+ 
+  # - name: restart apache2
+  # service: name=apache2 state=restarted
+
+  - name: Ensure the HTTPd service is enabled and running
+    service:
+      name: apache2
+      state: started
+      enabled: True
+    # become: True
+
+  - name: Ensure the website is present and updated
+    template:
+      src: ../files/index.html.j2
+      dest: /var/www/html/index.html
+      owner: root
+      group: root
+      mode: 0644
+

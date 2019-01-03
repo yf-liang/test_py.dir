@@ -1,0 +1,30 @@
+---
+- hosts: '{{ aserver }}'
+  become_user: root
+  become: true
+
+  tasks:
+  # - name: install apache2
+  #   apt: name=apache2 update_cache=yes state=latest
+
+  - name: Install httpd and required
+    yum:
+      # name:  ["epel-release","httpd","mod_ssl","python-certbot-apache"]
+      name:  ["httpd"]
+      state: present
+
+  - name: Ensure the HTTPd service is enabled and running
+    service:
+      name: httpd
+      state: started
+      enabled: True
+    # become: True
+
+  - name: Ensure the website is present and updated
+    template:
+      src: ../files/index.html.j2
+      dest: /var/www/html/index.html
+      owner: root
+      group: root
+      mode: 0644
+

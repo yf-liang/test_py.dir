@@ -1,0 +1,18 @@
+--- 
+- hosts: localhost
+  # sudo: True
+  become_user: root
+  become: true
+  # sudo is deprecated, but become_user does not have enough privilege.
+  # lesson: used wrong syntax
+  tasks: 
+  - name: update /etc/hosts - copy base template
+    shell: cat /etc/hosts.dev0                  > /etc/hosts.dev
+    # shell: cp  /etc/hosts.dev0                    /etc/hosts.dev
+
+  - name: update /etc/hosts - append new vms
+    shell: grep running  hosts.file  | awk '{print $5, $6}'  >> /etc/hosts.dev
+    # shell: grep running  hosts.file  | awk '{print $5, $6}' hosts.file     >> /etc/hosts.dev
+
+  - name: update /etc/hosts - update 
+    shell: cat /etc/hosts.skel /etc/hosts.dev   > /etc/hosts

@@ -1,0 +1,9 @@
+---
+#
+# Playbook to install httpd bundle
+#
+- hosts: httpd-svr
+  remote_user: root
+  become: true
+  roles:
+    - { role: ansible-role-httpd }

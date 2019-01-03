@@ -87,11 +87,15 @@ set -x
    target="$1"
    tuser="`targetuser $target`"
 
-   i2type="ami-edc04d89"
+   # i2type="ami-edc04d89"
+   i2type="ami-0c288fdcde212575f"
    ostype="centos7"
-   test "$itype"  = "centos" && i2type="ami-edc04d89"
-   test "$itype"  = "xymon"  && itype="centos"  &&  i2type="ami-79e5681d"
-   test "$itype"  = "ubuntu" && i2type="ami-08a6d44d1dac90d8e"  &&  ostype="ubuntu1604"
+   test "$itype"  = "centos"       && i2type="ami-0c288fdcde212575f"
+   test "$itype"  = "centos7blank" && itype="centos"      &&  i2type="ami-0ee86a6a"       
+   #old:  test "$itype"  = "xymon"        && itype="centos"      &&  i2type="ami-79e5681d"
+   test "$itype"  = "xymon"        && itype="centos"      &&  i2type="ami-0a0989e429d3ac97b"
+   #old: test "$itype"  = "ubuntu"       && ostype="ubuntu1604" &&  i2type="ami-08a6d44d1dac90d8e"
+   test "$itype"  = "ubuntu"       && ostype="ubuntu1604" &&  i2type="ami-01f43a40d497550f5"
 
    echo "host: $host, target=$target, tuser=$tuser, type=$itype"
    set -x
@@ -243,20 +247,31 @@ set -x
          # reset stored ssh key
          ssh-keygen -f "/home/yeliang/.ssh/known_hosts" -R "$anode"
 
+# need ip of amz7c
+amz7c=`ping -c 1 amz7c | grep PING | awk -F\( '{print $2}' | awk -F\) '{print $1}'`
          if [ "$ostype" = "centos7" ]; then
             ssh -o StrictHostKeyChecking=no -l ec2-user $anode "hostname"
             scp /etc/hosts.dev ec2-user@${anode}:/tmp/
             cat hosts > hosts.temp
             echo "$anode  ansible_ssh_host=$anode                            ansible_ssh_user=ec2-user" >> hosts.temp
+
+            # update /etc/hosts, change hostname, and reboot
+test "$anode" = "amz7c" && \
+ansible-playbook -i hosts.temp -e "xymonip=${amz7c}" tasks/aws_atool_centos_xym.yml --extra-vars "aserver=$anode"
+test "$anode" != "amz7c" && \
+ansible-playbook -i hosts.temp -e "xymonip=${amz7c}" tasks/aws_atool_centos.yml --extra-vars "aserver=$anode"
+
+# ansible-playbook -i ans_hosts -e 'xymonip=192.168.33.16' ../tasks/setup_centos_base.yml
+#            ansible-playbook  -i hosts.temp tasks/aws_atool_centos.yml --extra-vars "aserver=$anode"
          fi
          if [ "$ostype" = "ubuntu1604" ]; then
             ssh -o StrictHostKeyChecking=no -l ubuntu   $anode "hostname"
             scp /etc/hosts.dev ubuntu@${anode}:/tmp/
             echo "$anode  ansible_ssh_host=$anode                            ansible_ssh_user=ubuntu"   >> hosts.temp
-         fi
 
-         # update /etc/hosts, change hostname, and reboot
-         ansible-playbook  -i hosts.temp vag_atool_a.yml --extra-vars "aserver=$anode"
+            # update /etc/hosts, change hostname, and reboot
+            ansible-playbook  -i hosts.temp tasks/aws_atool_ubuntu.yml --extra-vars "aserver=$anode xymonip=${amz7c}"
+         fi
 
          # # update vag5:/etc/hosts
          # ansible-playbook  -i hosts.temp vag_atool_b.yml --extra-vars "aserver=$anode"

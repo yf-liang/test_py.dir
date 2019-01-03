@@ -1,0 +1,15 @@
+---
+- hosts: vag5
+  become_user: root
+  become: true
+  tasks:
+  - name: Print arg server 'name' 
+    debug: 
+      msg: 'update vag5 /etc/hosts' 
+
+  # - name: refresh /etc/hosts 
+  #   shell: cat /etc/hosts.skel > /etc/hosts
+
+  - name: update /etc/hosts with new servers
+    shell: cat /etc/hosts.skel /tmp/hosts.dev > /etc/hosts
+

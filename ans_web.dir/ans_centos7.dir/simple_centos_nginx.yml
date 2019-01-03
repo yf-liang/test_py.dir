@@ -1,0 +1,32 @@
+---
+- hosts: '{{ aserver }}'
+  become_user: root
+  become: true
+
+  tasks:
+  - name: Add EPEL repository
+    shell: yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+  - name: Install EPEL release for nginx
+    yum: name=epel-release state=present
+
+  - name: Install nginx web server
+    yum: name=nginx state=installed update_cache=true
+
+  - name: copy nginx config file
+    copy: src=../files/nginx.conf dest=/usr/share/nginx/www/ mode=0644
+    # copy: src=../files/nginx.conf dest=/etc/nginx/sites-available/default
+
+  # - name: enable configuration
+  #   file: >
+  #     dest=/etc/nginx/sites-enabled/default
+  #     src=/etc/nginx/sites-available/default
+  #     state=link
+
+  - name: copy index.html 
+    # template: src=../files/index_nginx.html.j2 dest=/usr/share/nginx/www/index.html mode=0644
+    template: src=../files/index_nginx.html.j2 dest=/usr/share/nginx/html/index.html mode=0644
+
+  - name: restart nginx
+    service: name=nginx state=restarted
+
